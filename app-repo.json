@@ -11,7 +11,14 @@
       "localizedDescription": "A client mod for Discord",
       "subtitle": "A client mod for Discord",
       "tintColor": "aa454d",
-      "versions": []
+      "versions": [
+        {
+          "version": "265.0",
+          "date": "2025-02-24",
+          "size": 88680775,
+          "downloadURL": "https://github.com/stqism/loader-ios/releases/download/v265.0/Unbound.ipa"
+        }
+      ]
     },
     {
       "name": "Unbound (TestFlight)",
@@ -22,6 +29,6 @@
       "subtitle": "A client mod for Discord (TestFlight builds)",
       "tintColor": "aa454d",
       "versions": []
-	}
+    }
   ]
 }
