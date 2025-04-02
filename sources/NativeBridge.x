@@ -76,56 +76,51 @@
 
 @end
 
-%hook RCTClipboard
-- (void)setString:(NSString *)content
+%hook DCDStrongboxManager
+- (void)getItem:(NSDictionary *)bridgeCommand
+        resolve:(RCTPromiseResolveBlock)resolve
+         reject:(RCTPromiseRejectBlock)reject
 {
-    if ([content hasPrefix:@"$$unbound$$:"])
+    if (bridgeCommand && [bridgeCommand[@"$$unbound$$"] boolValue])
     {
-        NSString *payload = [content substringFromIndex:12];
+        NSString *moduleName = bridgeCommand[@"module"];
+        NSString *methodName = bridgeCommand[@"method"];
+        NSArray  *args       = bridgeCommand[@"args"];
+
+        if (!moduleName || !methodName)
+        {
+            [Logger error:LOG_CATEGORY_NATIVEBRIDGE format:@"Missing module or method name"];
+
+            if (reject)
+                reject(@"INVALID_PARAMS", @"Missing module or method name", nil);
+            return;
+        }
+
+        [Logger debug:LOG_CATEGORY_NATIVEBRIDGE
+               format:@"Executing [%@ %@]", moduleName, methodName];
 
         @try
         {
-            NSData       *jsonData = [payload dataUsingEncoding:NSUTF8StringEncoding];
-            NSDictionary *json     = [NSJSONSerialization JSONObjectWithData:jsonData
-                                                                 options:0
-                                                                   error:nil];
-
-            if (json && [json isKindOfClass:[NSDictionary class]])
-            {
-                NSString *moduleName = json[@"module"];
-                NSString *methodName = json[@"method"];
-                NSArray  *args       = json[@"args"];
-
-                if (moduleName && methodName)
-                {
-                    [Logger debug:LOG_CATEGORY_NATIVEBRIDGE
-                           format:@"Calling %@.%@ with %lu args via Clipboard", moduleName,
-                                  methodName, (unsigned long) args.count];
-
-                    @try
-                    {
-                        [NativeBridge callNativeMethod:moduleName
+            // Execute the native method
+            id result = [NativeBridge callNativeMethod:moduleName
                                                 method:methodName
                                              arguments:(args ?: @[])];
-                    }
-                    @catch (NSException *exception)
-                    {
-                        [Logger error:LOG_CATEGORY_NATIVEBRIDGE
-                               format:@"Error calling %@.%@: %@", moduleName, methodName,
-                                      exception.reason];
-                    }
-                    return;
-                }
-            }
+
+            // Return the result
+            if (resolve)
+                resolve(result ?: [NSNull null]);
         }
         @catch (NSException *exception)
         {
             [Logger error:LOG_CATEGORY_NATIVEBRIDGE
-                   format:@"Error parsing bridge call: %@", exception.reason];
-        }
-    }
+                   format:@"Error executing [%@ %@]: %@", moduleName, methodName,
+                          exception.reason ?: @"Unknown error"];
 
+            if (reject)
+                reject(exception.name ?: @"ERROR", exception.reason ?: @"Unknown error", nil);
+        }
+        return;
+    }
     %orig;
 }
-
 %end
